@@ -1,0 +1,166 @@
+  public partial class Form1 : Form
+    {
+        bool changeBool;
+        bool skipBool;
+        bool renameBool;
+        public Form1()
+        {
+            InitializeComponent();
+            var exFile = ExistFile.GetInstance();
+            exFile.ChangeAction += Change;
+            exFile.SkipAction += Skip;
+            exFile.CopyAndRenameAction += Rename;
+            
+        }
+
+        private OpenFileDialog openFileDialog1;
+
+        void Change()
+        {
+            changeBool = true;
+            var exFile = ExistFile.GetInstance();
+            exFile.Close();
+        }
+
+        void Skip()
+        { 
+            skipBool = true;
+            var exFile = ExistFile.GetInstance();
+            exFile.Close();
+        }
+
+        void Rename()
+        {
+            renameBool = true;
+            var exFile = ExistFile.GetInstance();
+            exFile.Close();
+        }
+
+        private void Prewiev_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void AddPic_Click(object sender, EventArgs e)
+        {
+           var exFile = ExistFile.GetInstance();
+           changeBool = false;
+           skipBool = false;
+            using (OpenFileDialog openFileDialog = new OpenFileDialog()) //создаем экз класса диаологового окна
+            {
+                openFileDialog.InitialDirectory = @"C:\Users\Maksimmer\Downloads"; //указываем путь по умолчанию
+                openFileDialog.Filter =
+                    "jpg files (*.jpg)|*.jpg|All files (*.*)|*.*"; //указываем какие расщрения будут возможно выбрать 
+                openFileDialog.FilterIndex = 1; //указываем индекс расшиерния корое будет выбрано при откртии окна,
+                //отсчет от 1(jpg files (*.jpg)|*.jpg)
+                openFileDialog.RestoreDirectory = true; //задает значение, указывающее, восстанавливает
+                //ли диалоговое окно ранее выбранный каталог в качестве текущего
+                //каталога перед закрытием.
+                openFileDialog.Multiselect = true; //задаем возмондсоть полчения несолкьких файлов
+
+                if (openFileDialog.ShowDialog() == DialogResult.OK) //если мы нажимаем окей в диалоге обзора
+                {
+                    var fileNames = openFileDialog.FileNames;
+                    List<string> fileNamesArr = new List<string>();
+                    int countСoincidence = 0;
+                    string getFile = null;
+                    foreach (var file in fileNames)//получаем пути файлов и вытаскиваем их из спаиска путей
+                                                      //в отдельные строки
+                    {
+                        var fileName = Path.GetFileName(file);
+                       
+
+                        if (File.Exists(@"pic/" + fileName))
+                        {
+                            fileNamesArr.Add(fileName);
+                            countСoincidence += 1;
+                            getFile = file;
+                            continue;
+                        }
+                        File.Copy(file, Path.Combine("pic", Path.GetFileName(file)), true);
+                    }
+
+                    if (countСoincidence > 0)
+                    {
+                        exFile.FileNameText.Text = $"найдено конфиликтов {countСoincidence} что делать?";
+                        exFile.ShowDialog();
+                        if (changeBool)
+                        {
+                            foreach (var file in fileNames)
+                            {
+                                File.Copy(file, Path.Combine("pic", Path.GetFileName(file)), true);
+                            }
+                        }
+
+                        if (skipBool)
+                        {
+                        }
+
+                        string newFileName = null;
+
+                        if (renameBool)
+                        {
+                            foreach (var file in fileNames)
+                            {
+                                newFileName = Path.GetFileNameWithoutExtension(file);
+                                int num = 0;
+                                while (File.Exists(@"pic/" + newFileName +".jpg"))
+                                {
+                                    num += 1;
+                                    newFileName += $"({num})";
+                                }
+                                File.Copy(file, Path.Combine("pic", Path.GetFileName(newFileName + ".jpg")), true);
+                            }
+                        }
+                    }
+
+                    string[] list = Directory.GetFiles(@"pic/", "*.jpg");
+
+                    foreach (var picture in list)
+                    {
+                        //listView1.Bounds = new Rectangle(new Point(10, 10), new Size(300, 200));
+                        //ListViewItem item1 = new ListViewItem("item1", 0);
+                        //// Place a check mark next to the item.
+                        //item1.Checked = true;
+                        //item1.SubItems.Add("1");
+                        //imageList2.Images.Add(Bitmap.FromFile(picture));
+                        //listView1.Items.Add(new ListViewItem(picture, imageList1.Images.Count - 1));
+
+                    }
+
+                    listView1.Bounds = new Rectangle(new Point(50, 50), new Size(300, 200));
+
+                    listView1.View = System.Windows.Forms.View.Details;
+                    listView1.LabelEdit = true;
+                    listView1.AllowColumnReorder = true;
+                    listView1.CheckBoxes = true;
+                    listView1.FullRowSelect = true;
+                    listView1.GridLines = true;
+                    listView1.Sorting = SortOrder.Ascending;
+
+                    ListViewItem item1 = new ListViewItem("item1", 0);
+                    item1.SubItems.Add("1");
+                    item1.SubItems.Add("2");
+
+                    listView1.Columns.Add("Item Column", -2, HorizontalAlignment.Left);
+
+
+                    listView1.Items.AddRange(new ListViewItem[] {item1});
+
+                    imageList2.Images.Add(Bitmap.FromFile("pic\\photo.jpg"));
+                    imageList2.Images.Add(Bitmap.FromFile("pic\\photo1.jpg"));
+
+                    listView1.LargeImageList = imageList2;
+                    listView1.LargeImageList = imageList2;
+
+                    Controls.Add(listView1);
+                }
+            }
+
+        }
+
+        private void listView1_SelectedIndexChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
