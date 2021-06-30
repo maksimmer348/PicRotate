@@ -47,7 +47,9 @@ namespace PicRotate0
             this.WidthSize = new System.Windows.Forms.TextBox();
             this.label2 = new System.Windows.Forms.Label();
             this.label3 = new System.Windows.Forms.Label();
+            this.PicSelection = new System.Windows.Forms.PictureBox();
             ((System.ComponentModel.ISupportInitialize)(this.Preview)).BeginInit();
+            ((System.ComponentModel.ISupportInitialize)(this.PicSelection)).BeginInit();
             this.SuspendLayout();
             // 
             // AddPic
@@ -110,7 +112,6 @@ namespace PicRotate0
             this.Rotate.TabIndex = 4;
             this.Rotate.Text = "Rotate";
             this.Rotate.UseVisualStyleBackColor = true;
-            this.Rotate.Click += new System.EventHandler(this.RotateBtn_Click);
             // 
             // AngleRotate
             // 
@@ -127,10 +128,7 @@ namespace PicRotate0
             this.Preview.Size = new System.Drawing.Size(424, 383);
             this.Preview.TabIndex = 6;
             this.Preview.TabStop = false;
-            this.Preview.Click += new System.EventHandler(this.Preview_Click);
-            this.Preview.Paint += new System.Windows.Forms.PaintEventHandler(this.Preview_Paint);
             this.Preview.MouseDown += new System.Windows.Forms.MouseEventHandler(this.Preview_MousDown);
-            this.Preview.MouseMove += new System.Windows.Forms.MouseEventHandler(this.Preview_MouseMove);
             this.Preview.MouseUp += new System.Windows.Forms.MouseEventHandler(this.Preview_MouseUp);
             // 
             // Сrop
@@ -151,7 +149,6 @@ namespace PicRotate0
             this.RotateAngleText.Size = new System.Drawing.Size(20, 15);
             this.RotateAngleText.TabIndex = 8;
             this.RotateAngleText.Text = "∠°";
-            this.RotateAngleText.Click += new System.EventHandler(this.label1_Click);
             // 
             // button1
             // 
@@ -204,11 +201,23 @@ namespace PicRotate0
             this.label3.TabIndex = 14;
             this.label3.Text = "⬌";
             // 
+            // PicSelection
+            // 
+            this.PicSelection.Location = new System.Drawing.Point(12, 14);
+            this.PicSelection.Name = "PicSelection";
+            this.PicSelection.Size = new System.Drawing.Size(425, 383);
+            this.PicSelection.TabIndex = 15;
+            this.PicSelection.TabStop = false;
+            this.PicSelection.Paint += new System.Windows.Forms.PaintEventHandler(this.PicSelection_Paint);
+            this.PicSelection.MouseDown += new System.Windows.Forms.MouseEventHandler(this.PicSelection_MouseDown);
+            this.PicSelection.MouseUp += new System.Windows.Forms.MouseEventHandler(this.PicSelection_MouseUp);
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.PicSelection);
             this.Controls.Add(this.label3);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.WidthSize);
@@ -226,6 +235,7 @@ namespace PicRotate0
             this.Name = "Form1";
             this.Text = "Form1";
             ((System.ComponentModel.ISupportInitialize)(this.Preview)).EndInit();
+            ((System.ComponentModel.ISupportInitialize)(this.PicSelection)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -250,6 +260,7 @@ namespace PicRotate0
         private System.Windows.Forms.TextBox WidthSize;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.PictureBox PicSelection;
     }
 }
 

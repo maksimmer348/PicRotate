@@ -6,4 +6,8 @@
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="FastGdiPainterControl.WinForms" Version="1.0.1" />
+  </ItemGroup>
+
 </Project>

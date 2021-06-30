@@ -19,20 +19,42 @@ namespace PicRotate0
 {
     public partial class Form1 : Form
     {
+        //список из файлов 
         private string[] FileNames;
-        private Queue<string> PicturesQueue;
-        private Bitmap Pic;
-        private PictureBox PicBox;
-        private int SelectPic;
-        private Rectangle CropArea;
-        private Point LocationXY;
-        private Point LocationX1Y1;
-        private bool MouseDown;
 
+        //индекс выбраной картинки для лист вью
+        private int SelectPic;
+
+        //каринка с кторой ведется работа в питурбоксе
+        private Bitmap Pic;
+
+        //цвет ктором будет рисоватся выделелние
+        private Pen pen;
+
+        //Координаты картинки на исходном pictureBox.
+        private int begin_x;
+        private int begin_y;
+        private int xPos;
+        private int yPos;
+        int tempX;
+        int tempY;
+
+        private bool delPic;
+        //фигура выдлеления области обрезки
+        private Rectangle Rect;
+
+        private Graphics g;
         public Form1()
         {
             InitializeComponent();
+
             Preview.BorderStyle = BorderStyle.FixedSingle;
+
+            Preview.Controls.Add(PicSelection);
+            PicSelection.Location = new Point(0, 0);
+            PicSelection.BackColor = Color.Transparent;//передний фон
+            PicSelection.SizeMode = PictureBoxSizeMode.Zoom;
+            g = PicSelection.CreateGraphics();
         }
 
         #region AddPic
@@ -69,8 +91,7 @@ namespace PicRotate0
 
             }
 
-            Preview.SizeMode =
-                PictureBoxSizeMode.Zoom; //ставим настройку пиктурбоксу автозум изображенеи подстаивается под
+            Preview.SizeMode = PictureBoxSizeMode.Zoom; //ставим настройку пиктурбоксу автозум изображенеи подстаивается под
             Pic = new Bitmap(FileNames[0]); //него и не теряет форму
             Preview.Image = Pic; //после добавления картинок в список добавлляем первую из них в превьюшный пикутрбокс
 
@@ -111,7 +132,6 @@ namespace PicRotate0
                 {
                     FileNames = openFileDialog.FileNames;
                     LoadData();
-                    PicturesQueue = new Queue<string>();
                 }
             }
         }
@@ -127,7 +147,7 @@ namespace PicRotate0
             SelectPic = PictureList.FocusedItem.Index;
             Pic = new Bitmap(FileNames[SelectPic]);
             Preview.Image = Pic;
-
+            Angle = 0;
         }
 
         #endregion
@@ -138,8 +158,8 @@ namespace PicRotate0
         {
             Matrix mRotate = new Matrix();
 
-            mRotate.Translate(bmpSrc.Width / -2, bmpSrc.Height / -2, MatrixOrder.Append);
-            mRotate.RotateAt(theta, new Point(0, 0), MatrixOrder.Append);
+            mRotate.Translate(bmpSrc.Width / -2, bmpSrc.Height / -2, MatrixOrder.Append);//матрица последоватлньый набор команд исользуем чтобы переместит картинику
+            mRotate.RotateAt(theta, new Point(0, 0), MatrixOrder.Append);//после чего эа картинка поворачиваеися
 
             using (GraphicsPath gp = new GraphicsPath())
             {
@@ -150,7 +170,7 @@ namespace PicRotate0
                     new Point(bmpSrc.Width, 0),
                     new Point(0, bmpSrc.Height)
                 });
-                gp.Transform(mRotate);
+                gp.Transform(mRotate);//к пути применяеся набор команд - те матрица
                 PointF[] pts = gp.PathPoints;
 
                 // create destination bitmap sized to contain rotated source image
@@ -161,7 +181,7 @@ namespace PicRotate0
                 {
                     // draw source into dest
                     Matrix mDest = new Matrix();
-                    mDest.Translate(bmpDest.Width / 2, bmpDest.Height / 2, MatrixOrder.Append);
+                    mDest.Translate(bmpDest.Width / 2, bmpDest.Height / 2);
                     gDest.Transform = mDest;
                     gDest.DrawImage(bmpSrc, pts);
                     return bmpDest;
@@ -172,7 +192,7 @@ namespace PicRotate0
         private static Rectangle boundingBox(Image img, Matrix matrix)
         {
             GraphicsUnit gu = new GraphicsUnit();
-            Rectangle rImg = Rectangle.Round(img.GetBounds(ref gu));
+            Rectangle rImg = Rectangle.Round(img.GetBounds(ref gu));//rectangleF можно округлять вот так
 
             // Transform the four points of the image, to get the resized bounding box.
             Point topLeft = new Point(rImg.Left, rImg.Top);
@@ -195,21 +215,25 @@ namespace PicRotate0
             return Rectangle.Round(gp.GetBounds());
         }
 
+        private float Angle;
         void AngleRotate_TextChanged(object sender, EventArgs e)
         {
 
             string input = AngleRotate.Text;
             if (string.IsNullOrWhiteSpace(input))
             {
-                Preview.Image = RotateImage(Pic, 0);
+                Preview.Image = RotateImage((Bitmap) Preview.Image, 0-Angle);
+                Angle = 0;
             }
 
             if (!string.IsNullOrWhiteSpace(AngleRotate.Text) && Regex.IsMatch(input, @"^[0-9]+(\.[0-9]{1,3})?$"))
             {
-                var img = RotateImage(Pic, float.Parse(input));
+                var img = RotateImage((Bitmap) Preview.Image, float.Parse(input) - Angle);
                 Preview.Image = img;
+                Angle = float.Parse(input);
             }
 
+            
         }
 
         //public static Image RotateImage(Image img, float rotationAngle)
@@ -249,150 +273,160 @@ namespace PicRotate0
 
         #endregion
 
-        public static Image Crop(Image image, RectangleF selection)
+        private void Сrop_Click(object sender, EventArgs e)
         {
-            Bitmap bmp = image as Bitmap;
-
-            // Check if it is a bitmap:
-            if (bmp == null)
-                throw new ArgumentException("No valid bitmap");
-
-            // Crop the image:
-            Bitmap cropBmp = bmp.Clone(selection, bmp.PixelFormat);
-
-            // Release the resources:
-            image.Dispose();
-
-            return cropBmp;
+            Preview.Image = ImageUtils.CropImage(Preview, Rect);
+            delPic = true;
+            PicSelection.Invalidate();
         }
 
         private void DelPic_Click(object sender, EventArgs e)
         {
-            // Preview.Image = Crop(Preview.Image, CropArea);
-            Preview.Image = null;
+            delPic = true;
+            PicSelection.Invalidate();
+
         }
 
-        private void RotateBtn_Click(object sender, EventArgs e)
+        private void PicSelection_MouseUp(object sender, MouseEventArgs e)
         {
 
+            xPos = e.X;
+            yPos = e.Y;
+
+            if (xPos > begin_x && yPos > begin_y)
+            {
+
+                tempX = xPos - begin_x;
+                tempY = yPos - begin_y;
+                Rect = new Rectangle(begin_x, begin_y, tempX, tempY);
+
+                HeightSize.Text = Rect.Height.ToString();
+                WidthSize.Text = Rect.Width.ToString();
+            }
+            else if (xPos < begin_x && yPos < begin_y)
+            {
+                tempX = begin_x - xPos;
+                tempY = begin_y - yPos;
+                Rect = new Rectangle(xPos, yPos, tempX, tempY);
+             
+                HeightSize.Text = Rect.Height.ToString();
+                WidthSize.Text = Rect.Width.ToString();
+            }
+
+            else if (begin_x > xPos && yPos > begin_y)
+            {
+                tempX = begin_x - xPos;
+                tempY = yPos - begin_y;
+                Rect = new Rectangle(xPos, begin_y, tempX, tempY);
+              
+                HeightSize.Text = Rect.Height.ToString();
+                WidthSize.Text = Rect.Width.ToString();
+            }
+
+            else if (xPos > begin_x && yPos < begin_y)
+            {
+                tempX = xPos - begin_x;
+                tempY = begin_y - yPos;
+                Rect = new Rectangle(begin_x, yPos, xPos - begin_x, begin_y - yPos);
+               
+                HeightSize.Text = Rect.Height.ToString();
+                WidthSize.Text = Rect.Width.ToString();
+            }
+            if (Rect.Height > 0)
+            {
+                PicSelection.Image = null;
+            }
+           
         }
-
-        void label1_Click(object sender, EventArgs e)
-        {
-
-        }
-        private void Preview_Click(object sender, EventArgs e)
-        {
-
-        }
-        private Timer MyTimer = new Timer();
-
-        private void Preview_MousDown(object sender, MouseEventArgs e)
+        private void PicSelection_MouseDown(object sender, MouseEventArgs e)
         {
             begin_x = e.X;
             begin_y = e.Y;
-            //begin_x = e.X;
-            //begin_y = e.Y;
-            //SetTimer();
-            //PictureBox pb = new PictureBox();
-            //pb.Image = new Bitmap(Preview.Height, Preview.Width);
-            //Pen p = new Pen(Color.Red);
-            //Graphics g = Graphics.FromImage(pb.Image);
-            //g.DrawRectangle(p,10,10,100,100);
+            delPic = false;
         }
-
-
-
-
-
-        void SetTimer()
-        {
-            MyTimer.Interval = 10;
-            MyTimer.Tick += new EventHandler(MousePos);
-            MyTimer.Enabled = true;
-
-        }
-
-        private void MousePos(object? sender, EventArgs e)
-        {
-
-        }
-
-        private Pen pen;
-        private Graphics g;
-
-        private float begin_x;
-        private float begin_y; //Координаты картинки на исходном pictureBox.
-        private float xPos;
-        private float yPos;
-
-        float tempX;
-        float tempY;
-
-        private RectangleF Rect;
         private void Preview_MouseUp(object sender, MouseEventArgs e)
         {
-            g = Preview.CreateGraphics();
-            //g.RotateTransform(90);
-            // g.Clear(Color.Transparent);//очисить, перерисовать картинку 
-            pen = new Pen(Color.Red);
-            //g.DrawImPic,0,0);
-            xPos = e.X;
-            yPos = e.Y;
-            tempX = 0;
-            tempY = 0;
-            if (xPos > begin_x && yPos > begin_y)
-            {
-                tempX = xPos - begin_x;
-                tempY = yPos - begin_y;
-                g.DrawRectangle(pen, begin_x, begin_y, tempX, tempY);
-                Rect = new RectangleF(begin_x, begin_y, tempX, tempY);
-            }
-            if (xPos < begin_x && yPos < begin_y)
-            {
-
-                tempX = begin_x - xPos;
-                tempY = begin_y - yPos;
-                g.DrawRectangle(pen, xPos, yPos, tempX, tempY);
-                Rect = new RectangleF(xPos, yPos, tempX, tempY);
-            }
-
-            if (xPos > begin_x && yPos > begin_y)
-            {
-                tempX = xPos - begin_x;
-                tempY = yPos - begin_y;
-                g.DrawRectangle(pen, begin_x, begin_y, tempX,tempY);
-                Rect = new RectangleF(begin_x, begin_y, tempX, tempY);
-            }
-            if (begin_x > xPos && yPos > begin_y)
-            {
-                g.DrawRectangle(pen, xPos, begin_y, begin_x - xPos, yPos - begin_y);
-                Rect = new RectangleF(xPos, begin_y, begin_x - xPos, yPos - begin_y);
-            }
-
-            if (xPos > begin_x && yPos < begin_y)
-            {
-                g.DrawRectangle(pen, begin_x, yPos, xPos - begin_x, begin_y - yPos);
-                Rect = new RectangleF(begin_x, yPos, xPos - begin_x, begin_y - yPos);
-            }
-
 
         }
 
-        private void Preview_MouseMove(object sender, MouseEventArgs e)
+        private void Preview_MousDown(object sender, MouseEventArgs e)
         {
 
         }
 
-        private void Preview_Paint(object sender, PaintEventArgs e)
+        private void PicSelection_Paint(object sender, PaintEventArgs e)
         {
+            if(delPic) return;
+            using (Pen pen = new Pen(Color.Red, 2))
+            {
 
-        }
+                g = e.Graphics;
+                g.DrawRectangle(pen, Rect);
+                   
+            }
 
-        private void Сrop_Click(object sender, EventArgs e)
-        {
-            g = Preview.CreateGraphics();
-            g.DrawRectangle(new Pen(Color.Green), begin_x, begin_y, tempX, tempY);
         }
     }
+
+    #region CropImage
+
+    public static class ImageUtils
+    {
+        public static Bitmap CropImage(this PictureBox pb, Rectangle rect)
+        {
+            var imageRect = pb.GetImageRectangle();
+            var image = pb.Image;
+            float scaleX = (float)image.Width / imageRect.Width;
+            float scaleY = (float)image.Height / imageRect.Height;
+            var cropRect = new RectangleF();
+            cropRect.X = Scale(rect.X - imageRect.X, scaleX, image.Width);
+            cropRect.Y = Scale(rect.Y - imageRect.Y, scaleY, image.Height);
+            cropRect.Width = Scale(rect.Width, scaleX, image.Width - cropRect.X);
+            cropRect.Height = Scale(rect.Height, scaleY, image.Height - cropRect.Y);
+            var result = new Bitmap((int)cropRect.Width, (int)cropRect.Height, image.PixelFormat);
+            using (var g = Graphics.FromImage(result))
+                g.DrawImage(image, new RectangleF(new Point(0, 0), cropRect.Size), cropRect, GraphicsUnit.Pixel);
+            return result;
+        }
+
+        static float Scale(float value, float scale, float maxValue)
+        {
+            float result = (value * scale);
+            return result < 0 ? 0 : result > maxValue ? maxValue : result;
+        }
+
+        public static Rectangle GetImageRectangle(this PictureBox pb)
+        {
+            var rect = pb.ClientRectangle;
+            var padding = pb.Padding;
+            rect.X += padding.Left;
+            rect.Y += padding.Top;
+            rect.Width -= padding.Horizontal;
+            rect.Height -= padding.Vertical;
+            var image = pb.Image;
+            var sizeMode = pb.SizeMode;
+            if (sizeMode == PictureBoxSizeMode.Normal || sizeMode == PictureBoxSizeMode.AutoSize)
+                rect.Size = image.Size;
+            else if (sizeMode == PictureBoxSizeMode.CenterImage)
+            {
+                rect.X += (rect.Width - image.Width) / 2;
+                rect.Y += (rect.Height - image.Height) / 2;
+                rect.Size = image.Size;
+            }
+            else if (sizeMode == PictureBoxSizeMode.Zoom)
+            {
+                var imageSize = image.Size;
+                var zoomSize = pb.ClientSize;
+                float ratio = Math.Min((float)zoomSize.Width / imageSize.Width, (float)zoomSize.Height / imageSize.Height);
+                rect.Width = (int)(imageSize.Width * ratio);
+                rect.Height = (int)(imageSize.Height * ratio);
+                rect.X = (pb.ClientRectangle.Width - rect.Width) / 2;
+                rect.Y = (pb.ClientRectangle.Height - rect.Height) / 2;
+            }
+            return rect;
+        }
+    }
+
+    #endregion
+
 }
