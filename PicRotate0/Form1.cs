@@ -5,6 +5,7 @@ using System.Data;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.IO;
 using System.IO.Enumeration;
 using System.Linq;
@@ -12,6 +13,7 @@ using System.Resources.Extensions;
 using System.Security;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -20,7 +22,7 @@ namespace PicRotate0
     public partial class Form1 : Form
     {
         //список из файлов 
-        private string[] FileNames;
+        private List<string> FileNames;
 
         //индекс выбраной картинки для лист вью
         private int SelectPic;
@@ -28,9 +30,8 @@ namespace PicRotate0
         //каринка с кторой ведется работа в питурбоксе
         private Bitmap Pic;
 
-        //цвет ктором будет рисоватся выделелние
-        private Pen pen;
-
+        Bitmap img;
+        private Queue<string> QueuePic;
         //Координаты картинки на исходном pictureBox.
         private int begin_x;
         private int begin_y;
@@ -44,6 +45,8 @@ namespace PicRotate0
         private Rectangle Rect;
 
         private Graphics g;
+
+        private bool itemRemove { get; set; }
         public Form1()
         {
             InitializeComponent();
@@ -54,7 +57,8 @@ namespace PicRotate0
             PicSelection.Location = new Point(0, 0);
             PicSelection.BackColor = Color.Transparent;//передний фон
             PicSelection.SizeMode = PictureBoxSizeMode.Zoom;
-            g = PicSelection.CreateGraphics();
+            delPic = true;
+            PicSelection.Invalidate();
         }
 
         #region AddPic
@@ -95,27 +99,18 @@ namespace PicRotate0
             Pic = new Bitmap(FileNames[0]); //него и не теряет форму
             Preview.Image = Pic; //после добавления картинок в список добавлляем первую из них в превьюшный пикутрбокс
 
-            //не используется
-
-            #region добавить пустое изборажение
-
-            //ImageList.Images.Add(new Bitmap(@"pic/photo.jpg"));
-
-
-            //Bitmap emptyPIc = new Bitmap(60, 60);
-
-            //using (Graphics gr = Graphics.FromImage(emptyPIc))//можно редактировать изобрадение
-            //{
-            //    gr.Clear(Color.AliceBlue);//заливаем былым чтобы небыло видно изображение на лист вюь
-            //}
-            //ImageList.Images.Add(emptyPIc);//добавить пустое изображение в список
-
-            #endregion
-
         }
 
         private void AddPic_Click(object sender, EventArgs e)
         {
+            if (FileNames != null)
+            {
+                itemRemove = true;
+                FileNames.Clear();
+                PictureList.Items.Clear();
+                ImageList.Images.Clear();
+            }
+            
             using (OpenFileDialog openFileDialog = new OpenFileDialog()) //создаем экз класса диаологового окна
             {
                 openFileDialog.InitialDirectory = @"C:\Users\Maksimmer\Downloads"; //указываем путь по умолчанию
@@ -130,29 +125,90 @@ namespace PicRotate0
 
                 if (openFileDialog.ShowDialog() == DialogResult.OK) //если мы нажимаем окей в диалоге обзора
                 {
-                    FileNames = openFileDialog.FileNames;
+                    FileNames = new List<string>(openFileDialog.FileNames);
                     LoadData();
                 }
             }
+
+           
         }
 
         #endregion
 
         #region SelectPic
-
-
+        bool SelectChange;
         void PictureList_SelectedIndexChanged(object sender, EventArgs e)
         {
-            if (PictureList.FocusedItem == null) return;
+           
+            if (SelectChange)
+            {
+                if (PictureList.FocusedItem == null) return;
+                SelectPic = PictureList.FocusedItem.Index;
+
+                if (itemRemove)
+                {
+                    Pic = new Bitmap(FileNames[0]);
+                    itemRemove = true;
+                }
+                else if (!itemRemove)
+                {
+                    Pic = new Bitmap(FileNames[SelectPic]);
+                }
+                Preview.Image = Pic;
+            }
+        }
+
+        private void DelPic_Click(object sender, EventArgs e)
+        {
+
+            if (FileNames == null || PictureList.Items.Count <= 0 || PictureList.FocusedItem == null)
+            {
+                return;
+            }
+
             SelectPic = PictureList.FocusedItem.Index;
-            Pic = new Bitmap(FileNames[SelectPic]);
-            Preview.Image = Pic;
-            Angle = 0;
+                itemRemove = true;
+                SelectChange = false;
+                //SelectPic = PictureList.FocusedItem.Index;
+                FileNames.RemoveAt(SelectPic);
+                PictureList.Items.RemoveAt(SelectPic);
+                ImageList.Images.RemoveAt(SelectPic);
+                Preview.Image = null;
+                SelectChange = true;
+            
+          
         }
 
         #endregion
 
         #region RotateImage
+
+        private string RotateAngle;
+        void AngleRotate_TextChanged(object sender, EventArgs e)
+        {
+            RotatePict(Pic ,AngleRotate.Text);
+            RotateAngle = AngleRotate.Text;
+        }
+
+        Bitmap RotatePict( Bitmap pic, string angle)//тип перменных должны соответстовать типам данных
+        {
+            // string input = AngleRotate.Text;
+            if (string.IsNullOrWhiteSpace(angle))//все проверки не это перенсти или в отдельный мтеод или остаить в текбоксе
+            //тк исспользуетя ОДИН РАЗ
+            {
+                img = RotateImage((Bitmap)pic, 0);
+                Preview.Image = img;
+
+            }
+
+            if (!string.IsNullOrWhiteSpace(angle) && Regex.IsMatch(angle, @"^[0-9]+(\.[0-9]{1,3})?$"))
+            {
+                img = RotateImage(pic, float.Parse(angle));//все преобразования нужнг выносить за метод в
+                                                           //отдельный метод тк исользуется ОДИН РАЗ
+                Preview.Image = img;
+            }
+            return img;
+        }
 
         public static Bitmap RotateImage(Bitmap bmpSrc, float theta)
         {
@@ -215,78 +271,26 @@ namespace PicRotate0
             return Rectangle.Round(gp.GetBounds());
         }
 
-        private float Angle;
-        void AngleRotate_TextChanged(object sender, EventArgs e)
-        {
-
-            string input = AngleRotate.Text;
-            if (string.IsNullOrWhiteSpace(input))
-            {
-                Preview.Image = RotateImage((Bitmap) Preview.Image, 0-Angle);
-                Angle = 0;
-            }
-
-            if (!string.IsNullOrWhiteSpace(AngleRotate.Text) && Regex.IsMatch(input, @"^[0-9]+(\.[0-9]{1,3})?$"))
-            {
-                var img = RotateImage((Bitmap) Preview.Image, float.Parse(input) - Angle);
-                Preview.Image = img;
-                Angle = float.Parse(input);
-            }
-
-            
-        }
-
-        //public static Image RotateImage(Image img, float rotationAngle)
-        //{
-        //    if (img != null)
-        //    {
-        //        //создаем пустую юитмап картинку с размерам входной кратинки
-        //        Bitmap bmp = new Bitmap(img.Width, img.Height);
-
-        //        //превращаем Bitmap в объект Graphics
-        //        Graphics gfx = Graphics.FromImage(bmp);
-
-        //        //устанавливаем центр нашего обьекта графики
-        //        gfx.TranslateTransform((float)bmp.Width / 2, (float)bmp.Height / 2);
-
-        //        //поворачиваем наш обьект графики
-        //        gfx.RotateTransform(rotationAngle,MatrixOrder.Append);
-        //        //возвращаем картинку обратно на центр после транфсормации
-        //        gfx.TranslateTransform(-(float)bmp.Width / 2, -(float)bmp.Height / 2);
-
-        //        //Задает высококачественную бикубическую интерполяцию. Выполняется предварительная
-        //        //фильтрация, чтобы гарантировать высококачественное сжатие. Этот режим создает
-        //        //преобразованные изображения самого высокого качества.
-        //        gfx.InterpolationMode = InterpolationMode.HighQualityBicubic;
-
-        //        //Рисует указанный объект Image в заданном месте, используя указанную форму и точку создания.
-        //        gfx.DrawImage(img, new Point(0,  0));
-
-        //        //Освобождает все ресурсы, используемые этим объектом графики
-        //        gfx.Dispose();
-        //        //return the image
-        //        return bmp;
-        //    }
-
-        //    return img;
-        //}
-
         #endregion
 
         private void Сrop_Click(object sender, EventArgs e)
         {
-            Preview.Image = ImageUtils.CropImage(Preview, Rect);
-            delPic = true;
-            PicSelection.Invalidate();
+            crepEnbl = false;
+            CropPict(Pic, Rect);
         }
 
-        private void DelPic_Click(object sender, EventArgs e)
+        Bitmap CropPict(Bitmap pic, Rectangle rect)
         {
+            Pic = ImageUtils.CropImage(Preview, rect);
+            Preview.Image = Pic;
             delPic = true;
             PicSelection.Invalidate();
-
+            img = Pic;
+            crepEnbl = true;
+            return img;
         }
 
+        private bool crepEnbl;
         private void PicSelection_MouseUp(object sender, MouseEventArgs e)
         {
 
@@ -300,17 +304,16 @@ namespace PicRotate0
                 tempY = yPos - begin_y;
                 Rect = new Rectangle(begin_x, begin_y, tempX, tempY);
 
-                HeightSize.Text = Rect.Height.ToString();
-                WidthSize.Text = Rect.Width.ToString();
+                //LeftSize.Text = (Rect.Width/ 2).ToString();
+                //RightSize.Text = (Rect.Width).ToString();
             }
             else if (xPos < begin_x && yPos < begin_y)
             {
                 tempX = begin_x - xPos;
                 tempY = begin_y - yPos;
                 Rect = new Rectangle(xPos, yPos, tempX, tempY);
-             
-                HeightSize.Text = Rect.Height.ToString();
-                WidthSize.Text = Rect.Width.ToString();
+
+
             }
 
             else if (begin_x > xPos && yPos > begin_y)
@@ -318,9 +321,8 @@ namespace PicRotate0
                 tempX = begin_x - xPos;
                 tempY = yPos - begin_y;
                 Rect = new Rectangle(xPos, begin_y, tempX, tempY);
-              
-                HeightSize.Text = Rect.Height.ToString();
-                WidthSize.Text = Rect.Width.ToString();
+
+
             }
 
             else if (xPos > begin_x && yPos < begin_y)
@@ -328,15 +330,14 @@ namespace PicRotate0
                 tempX = xPos - begin_x;
                 tempY = begin_y - yPos;
                 Rect = new Rectangle(begin_x, yPos, xPos - begin_x, begin_y - yPos);
-               
-                HeightSize.Text = Rect.Height.ToString();
-                WidthSize.Text = Rect.Width.ToString();
+
+
             }
             if (Rect.Height > 0)
             {
                 PicSelection.Image = null;
             }
-           
+
         }
         private void PicSelection_MouseDown(object sender, MouseEventArgs e)
         {
@@ -344,6 +345,19 @@ namespace PicRotate0
             begin_y = e.Y;
             delPic = false;
         }
+
+        private void PicSelection_Paint(object sender, PaintEventArgs e)
+        {
+            if (delPic) return;
+            using (Pen pen = new Pen(Color.Red, 2))
+            {
+
+                g = e.Graphics;
+                g.DrawRectangle(pen, Rect);
+
+            }
+        }
+
         private void Preview_MouseUp(object sender, MouseEventArgs e)
         {
 
@@ -354,19 +368,214 @@ namespace PicRotate0
 
         }
 
-        private void PicSelection_Paint(object sender, PaintEventArgs e)
-        {
-            if(delPic) return;
-            using (Pen pen = new Pen(Color.Red, 2))
-            {
 
-                g = e.Graphics;
-                g.DrawRectangle(pen, Rect);
-                   
-            }
+        private void CropPixels_Enter(object sender, EventArgs e)
+        {
 
         }
-    }
+
+        private void LeftSize_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void TopSize_TextChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void RightSize_TextChanged(object sender, EventArgs e)
+        {
+
+
+
+        }
+
+        private void BottomSize_TextChanged(object sender, EventArgs e)
+        {
+
+
+        }
+
+        private void PlusSize_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(PointX.Text))
+            {
+                delPic = true;
+                Rect.X += Convert.ToInt32(PointX.Text);
+                delPic = false;
+
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(PointY.Text))
+            {
+                delPic = true;
+                Rect.Y += Convert.ToInt32(PointY.Text);
+                delPic = false;
+
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(LeftSize.Text))
+            {
+                delPic = true;
+                Rect.X -= Convert.ToInt32(LeftSize.Text);
+
+                Rect.Width += Convert.ToInt32(LeftSize.Text);
+
+                delPic = false;
+
+                PicSelection.Invalidate();
+
+            }
+
+            if (!string.IsNullOrEmpty(TopSize.Text))
+            {
+                delPic = true;
+                Rect.Y -= Convert.ToInt32(TopSize.Text);
+
+                Rect.Height += Convert.ToInt32(TopSize.Text);
+
+                delPic = false;
+
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(RightSize.Text))
+            {
+                delPic = true;
+                Rect.Width += Convert.ToInt32(RightSize.Text);
+
+                delPic = false;
+
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(BottomSize.Text))
+            {
+            
+
+                Rect.Height += Convert.ToInt32(BottomSize.Text);
+
+                delPic = false;
+                PicSelection.Invalidate();
+            }
+        }
+
+        private void MinusSize_Click(object sender, EventArgs e)
+        {
+            if (!string.IsNullOrEmpty(PointX.Text))
+            {
+                delPic = true;
+                Rect.X -= Convert.ToInt32(PointX.Text);
+                delPic = false;
+
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(PointY.Text))
+            {
+                delPic = true;
+                Rect.Y -= Convert.ToInt32(PointY.Text);
+                delPic = false;
+
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(LeftSize.Text))
+            {
+                delPic = true;
+                Rect.X += Convert.ToInt32(LeftSize.Text);
+
+                Rect.Width -= Convert.ToInt32(LeftSize.Text);
+                delPic = false;
+                PicSelection.Invalidate();
+
+            }
+
+            if (!string.IsNullOrEmpty(TopSize.Text))
+            {
+                delPic = true;
+                Rect.Y += Convert.ToInt32(TopSize.Text);
+
+                Rect.Height -= Convert.ToInt32(TopSize.Text);
+                delPic = false;
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(RightSize.Text))
+            {
+                delPic = true;
+                Rect.Width -= Convert.ToInt32(RightSize.Text);
+
+
+                delPic = false;
+                PicSelection.Invalidate();
+            }
+
+            if (!string.IsNullOrEmpty(BottomSize.Text))
+            {
+                delPic = true;
+
+                Rect.Height = Rect.Height - Convert.ToInt32(BottomSize.Text);
+
+
+                delPic = false;
+                PicSelection.Invalidate();
+            }
+        }
+
+
+        private void BackbaseBtn_Click(object sender, EventArgs e)
+        {
+
+            RightSize.Text = String.Empty;
+            LeftSize.Text = String.Empty;
+            TopSize.Text = String.Empty;
+            BottomSize.Text = String.Empty;
+
+        }
+
+        private void PicSelection_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void label2_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void DelChanges_Click(object sender, EventArgs e)
+        {
+            delPic = true;
+            PicSelection.Invalidate();
+        }
+
+        private void Save_Click(object sender, EventArgs e)
+        {
+            img.Save($"{FileNames[SelectPic]}(измененнная)" + ".jpg");
+        }
+
+        private void SaveAll_Click(object sender, EventArgs e)
+        {
+            QueuePic = new Queue<string>();
+           
+            foreach (var file in FileNames)
+            {
+                var pic = new Bitmap(file);
+                if (!string.IsNullOrWhiteSpace(AngleRotate.Text) || AngleRotate.Text != "0")
+                    pic = RotatePict(pic, AngleRotate.Text);
+                if (crepEnbl)
+                    pic = CropPict(pic, Rect);
+                pic.Save($"{file} (измененнная)" + Path.GetExtension(file));//сохраняем файл в
+                                                                            //с тем жеименем и добвавленым текстом, а так же с тем же разрешением
+                                                                            //изучить класс Path(Combine Join) File Directory
+            }
+        }
+        
+}
 
     #region CropImage
 
@@ -426,7 +635,6 @@ namespace PicRotate0
             return rect;
         }
     }
-
     #endregion
 
 }
